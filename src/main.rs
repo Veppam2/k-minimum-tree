@@ -74,6 +74,15 @@ impl Edge{
     fn get_vf(&self) -> &Vertex{
         &self.vf
     }
+    fn vertex_in_edge(&self, v: Vertex)-> bool{
+        if self.vi.eq(&v){
+            return true ;
+        }
+        if self.vf.eq(&v){
+            return true ;
+        }
+        false
+    }
 }
 #[derive(Debug)]
 #[derive(Clone)]
@@ -437,6 +446,40 @@ impl Tree{
         true
     }
 
+    fn delete_edge(&mut self, e: Edge ){
+            println!("ELIMINAAAAA ENTRAA");
+            println!("Lista edges tree: {:?}", self);
+            println!("A eliminar: {:?}", e);
+
+        if self.tree_edge_list.contains(&e){
+            let index =  self.tree_edge_list.iter().position(|x| x.eq(&e) ).unwrap();
+            self.tree_edge_list.remove(index);
+            println!("ELIMINAAAAA");
+
+            let v_i = e.get_vi();
+            let v_f = e.get_vf();
+
+            let mut v_i_still_adyacent = false;
+            let mut v_f_still_adyacent = false;
+
+            for ee in &self.tree_edge_list{
+                if ee.vertex_in_edge(*v_i){
+                    v_i_still_adyacent = true;
+                }
+                if ee.vertex_in_edge(*v_f){
+                    v_f_still_adyacent = true;
+                }
+            }
+
+            if ! v_i_still_adyacent{
+                self.tree_vertex_dictionary.remove(v_i.get_id());
+            }
+            if ! v_f_still_adyacent{
+                self.tree_vertex_dictionary.remove(v_f.get_id());
+            }
+        }
+    }
+
     fn get_tree_vertexs(&mut self)->HashMap<u32, Vertex>{
         self.tree_vertex_dictionary.clone()
     }
@@ -488,7 +531,10 @@ impl MinimumKTreeHeuristic{
         let mut v_in_vector : Vec<Vertex>= v_in.into_values().collect();
 
         let mut v_out: HashMap<u32, Vertex> = HashMap::new();
+
         let mut tree_k_plus_1 = tree.clone();
+        //println!("COSA ANTESSSSS: {:?}", tree_k_plus_1.get_cycle_edges(self.graph.get_size()));
+
         let vertex_in : Vertex;
         let vertex_out : Vertex;
 
@@ -531,13 +577,25 @@ impl MinimumKTreeHeuristic{
                             //Add v_in and e_min_1 to tree_k_plus_1
                             tree_k_plus_1.add_edge_to_tree(e_min_1);
                             println!("INSERTA E: {:?}", e_min_1);
-                            let edges_that_make_cycle = tree_k_plus_1.get_cycle_edges( self.graph.get_size() );
+                            let mut edges_that_make_cycle = tree_k_plus_1.get_cycle_edges( self.graph.get_size() );
                             println!("CICLOOO: {:?}", edges_that_make_cycle);
+                            //Order from max to min
+                            edges_that_make_cycle.sort_unstable_by(
+                                |e_1,e_2|
+                                e_2.get_weigth().partial_cmp(&e_1.get_weigth()).unwrap()
+                            );
+                            let e_max = edges_that_make_cycle.pop().unwrap();
+                            tree_k_plus_1.delete_edge(e_max);
                             println!("QUITANDO Y METIENEDO ARISTAS{:?}", tree_k_plus_1);
 
                         }
 
+                        v_out = tree.get_tree_vertexs();
 
+                        println!("T_cur_k: {:?}", tree);
+                        println!("T_k_plus_1: {:?}", tree_k_plus_1);
+
+                        break;
 
                     }
                 }
