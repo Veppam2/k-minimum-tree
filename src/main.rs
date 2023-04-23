@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::Entry;
+use std::collections::VecDeque;
 //use priority_queue::DoublePriorityQueue;
 
 use rand::Rng;
@@ -290,6 +291,88 @@ impl Tree{
 
     }
 
+    fn get_u_v_unique_path( &mut self, u: Vertex, v: Vertex )->Vec<Edge>{
+
+        let v_id = v.get_id();
+        let u_id = u.get_id();
+
+        //First we build our neighbour tree from vertex
+        let mut vertex_neighbours : HashMap<u32, Vec<Vertex> > = HashMap::new();
+        let mut cycle : Vec<Edge> = Vec::new();
+        let mut pre_path : Vec<Vertex> = Vec::new();
+        for e in &self.tree_edge_list{
+
+            let v_i = e.get_vi();
+            let v_f = e.get_vf();
+
+            match vertex_neighbours.entry(*v_i.get_id()) {
+                Entry::Vacant(entry) =>{ entry.insert(vec![*v_f]); },
+                Entry::Occupied(mut entry)=>{ entry.get_mut().push(*v_f);}
+            };
+
+            match vertex_neighbours.entry(*v_f.get_id()) {
+                Entry::Vacant(entry) =>{ entry.insert(vec![*v_i]); },
+                Entry::Occupied(mut entry)=>{ entry.get_mut().push(*v_i);}
+            };
+
+
+        }
+        //Find unique trayectory. DFS because is nicer for tree
+        let mut queue_dfs: VecDeque<Vertex> = VecDeque::new();
+        let mut visited_register : HashMap<u32, bool> = HashMap::new();
+        let mut parents: HashMap<u32, u32> = HashMap::new();
+        let mut parents_v: HashMap<u32, Vertex> = HashMap::new();
+
+        //Anyone visited nor has parent
+        for (k, _) in &self.tree_vertex_dictionary{
+           visited_register.insert(*k, false);
+            //parents.insert(*k, 0);
+        }
+
+        *visited_register.get_mut(v_id).unwrap() = true;
+        //*parents.get_mut(v_id).unwrap() = *v_id;
+        parents.insert(*v_id, *v_id);
+        queue_dfs.push_front(v);
+
+        let mut tray_found: bool = false;
+
+        while queue_dfs.len() != 0 && !tray_found{
+            let w : Vertex = queue_dfs.pop_front().unwrap();
+
+            tray_found = w.eq(&u);
+
+            for r  in vertex_neighbours[w.get_id()].clone(){
+
+                if ! visited_register.get(r.get_id()).unwrap() {
+
+                    *visited_register.get_mut(r.get_id()).unwrap() = true;
+                    parents.insert(*r.get_id(), *w.get_id() );
+                    //*parents_v.get_mut(r.get_id()).unwrap() = w;
+                    parents_v.insert(*r.get_id(), w);
+                    //parents[r.get_id()] = w;
+                    queue_dfs.push_back(r);
+                }
+            }
+        }
+        //Build tray
+        println!("PRE-CICLO-MAP: {:?}", parents);
+
+        let mut tray: Vec<Edge> = Vec::new();
+        let mut first : Vertex = u;
+        let mut next: Vertex = *parents_v.get(first.get_id()).unwrap();
+        tray.push(Edge{vi: first, vf: next});
+        while( !v.eq( &next) ){
+            first = next;
+            next = *parents_v.get(first.get_id()).unwrap();
+            let e = Edge{vi: first, vf: next};
+            println!("crea: {:?}", e);
+            tray.push(e);
+        }
+
+        tray
+    }
+
+    /*
     fn get_cycle_edges( &mut self , number_of_vertex: usize)->Vec<Edge>{
         //First we build our neighbour tree from vertex
         let mut vertex_neighbours : HashMap<u32, Vec<Vertex> > = HashMap::new();
@@ -311,22 +394,13 @@ impl Tree{
             };
 
 
-           // if vertex_neighbours.contains_key(v_i.get_id()){
-              // vertex_neighbours
-            //}
         }
-        //println!("MAPAAAAAAA: {:?}", vertex_neighbours);
+    //println!("MAPAAAAAAA: {:?}", vertex_neighbours);
 
         //We search for a tree in that vertex
         let mut visited_register : Vec<bool> = vec![false; number_of_vertex];
         for (v_id, _) in self.tree_vertex_dictionary.clone(){
             if !visited_register[v_id as usize] {
-                /*
-                match self.sub_detect_cyclic( &vertex_neighbours, v_id, &mut visited_register, 0){
-                    Some(v)=>{},
-                    None =>{}
-                }
-                */
                 self.sub_detect_cyclic(&vertex_neighbours, &mut pre_cycle, v_id, &mut visited_register, 0);
 
                 println!("PRE_CICLOOO: {:?}", pre_cycle);
@@ -348,46 +422,8 @@ impl Tree{
         cycle
     }
 
-    fn sub_detect_cyclic(
-        &mut self,
-        adjacencies: &HashMap<u32, Vec<Vertex>>,
-        pre_cycle: &mut Vec<Vertex>,
-        v_id: u32,
-        visited_register: &mut Vec<bool>,
-        v_parent: u32
-    )->bool{
-        //Mark vertex as visited
-        visited_register[v_id as usize] = true;
-        let neighbors = adjacencies.get(&v_id).unwrap().clone();
-        println!("Empezando en: {:?}, con padre; {:?}", v_id, v_parent);
-        println!("Vecinos:{:?}", neighbors);
-        println!("visitados:{:?}", visited_register);
-        for w in neighbors{
-            let w_id = w.get_id();
 
-            if !visited_register[*w_id as usize] {
-                let b = self.sub_detect_cyclic(
-                    adjacencies,
-                    pre_cycle,
-                    *w_id,
-                    visited_register,
-                    v_id
-                );
-                if b{
-                    pre_cycle.push(*self.tree_vertex_dictionary.get(w_id).unwrap());
-                    return true;
-                }
-
-            }else if v_parent != *w_id{
-                println!("Meto w:{:?}, con v:{:?}, padre: {:?}",*w_id, v_id, v_parent );
-                pre_cycle.push(w);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    fn sub_detect_cyclic_2( &mut self, adjacencies: &HashMap<u32, Vec<Vertex>>,v_id: u32, visited_register: &mut Vec<bool>, v_parent: u32 )-> Option<Vec<Vertex>>{
+    fn sub_detect_cyclic( &mut self, adjacencies: &HashMap<u32,v_id: u32, visited_register: &mut Vec<bool>, v_parent: u32 )-> Option<Vec<Vertex>>{
 
         //Mark vertex as visited
         visited_register[v_id as usize] = true;
@@ -399,7 +435,7 @@ impl Tree{
             let w_id = w.get_id();
 
             if !visited_register[*w_id as usize] {
-               let sub_path = self.sub_detect_cyclic_2( adjacencies, *w_id, visited_register, v_id);
+               let sub_path = self.sub_detect_cyclic( adjacencies, *w_id, visited_register, v_id);
 
                 if sub_path.is_some() {
                     return sub_path;
@@ -410,6 +446,7 @@ impl Tree{
         }
         None
     }
+    */
 
     //To keep uncycled
     fn add_edge_to_tree_keeping_acyclic(&mut self, e: Edge)-> bool{
@@ -445,7 +482,6 @@ impl Tree{
 
         true
     }
-
     fn delete_edge(&mut self, e: Edge ){
             println!("ELIMINAAAAA ENTRAA");
             println!("Lista edges tree: {:?}", self);
@@ -575,18 +611,24 @@ impl MinimumKTreeHeuristic{
                         while e_in_1.len() != 0{
                             e_min_1 = e_in_1.pop().unwrap();
                             //Add v_in and e_min_1 to tree_k_plus_1
+                            let e_min_1_vi = *e_min_1.get_vi();
+                            let e_min_1_vf = *e_min_1.get_vf();
+                            let mut e_min_1_vertexs_cycle : Vec<Edge> = tree_k_plus_1.get_u_v_unique_path( e_min_1_vi, e_min_1_vf );
+
+                            e_min_1_vertexs_cycle.push(e_min_1);
                             tree_k_plus_1.add_edge_to_tree(e_min_1);
+
                             println!("INSERTA E: {:?}", e_min_1);
-                            let mut edges_that_make_cycle = tree_k_plus_1.get_cycle_edges( self.graph.get_size() );
-                            println!("CICLOOO: {:?}", edges_that_make_cycle);
+                            println!("CICLOOO: {:?}", e_min_1_vertexs_cycle);
+
                             //Order from max to min
-                            edges_that_make_cycle.sort_unstable_by(
+                            e_min_1_vertexs_cycle.sort_unstable_by(
                                 |e_1,e_2|
-                                e_2.get_weigth().partial_cmp(&e_1.get_weigth()).unwrap()
+                                e_1.get_weigth().partial_cmp(&e_2.get_weigth()).unwrap()
                             );
-                            let e_max = edges_that_make_cycle.pop().unwrap();
+                            let e_max = e_min_1_vertexs_cycle.pop().unwrap();
                             tree_k_plus_1.delete_edge(e_max);
-                            println!("QUITANDO Y METIENEDO ARISTAS{:?}", tree_k_plus_1);
+                            println!("QUITANDO Y METIENEDO ARISTAS: {:?}\n{:?}",e_max, tree_k_plus_1);
 
                         }
 
