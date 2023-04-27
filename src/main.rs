@@ -517,7 +517,8 @@ struct MinimumKTreeHeuristic{
     tt_max: u32,
     tt_ten: u32,
     nic_int : u32,
-    nic_max: u32
+    nic_max: u32,
+    max_num_iter: u32
 }
 
 impl MinimumKTreeHeuristic{
@@ -550,7 +551,8 @@ impl MinimumKTreeHeuristic{
             tt_max: tt_max,
             tt_ten: tt_min,
             nic_int: nic_int,
-            nic_max: nic_max
+            nic_max: nic_max,
+            max_num_iter: 100000
         }
 
     
@@ -593,7 +595,10 @@ impl MinimumKTreeHeuristic{
         let mut option_vertex_v_in : Option<Vertex> = None;
         let mut option_vertex_v_out : Option<Vertex> = None;
 
-        while self.tt_ten > self.tt_max{
+        let mut cont : u32 = 0;
+
+        while self.tt_ten <  self.tt_max && cont < self.max_num_iter {
+            cont += 1;
             if v_out_vector.len() == 0 {
                 while v_out_vector.len() == 0 {
                     if v_in_vector.len() == 0 {
@@ -623,7 +628,6 @@ impl MinimumKTreeHeuristic{
                         let mut e_min_1 = e_in_1.pop().unwrap();
                         //Add v_in and e_min_1 to tree_k_plus_1
                         tree_k_plus_1.add_edge_to_tree(e_min_1);
-                            println!("ANTES QUITANDO Y METIENEDO ARISTAS{:?}", tree_k_plus_1);
 
                         while e_in_1.len() != 0{
                             e_min_1 = e_in_1.pop().unwrap();
@@ -635,8 +639,6 @@ impl MinimumKTreeHeuristic{
                             e_min_1_vertexs_cycle.push(e_min_1);
                             tree_k_plus_1.add_edge_to_tree(e_min_1);
 
-                            println!("INSERTA E: {:?}", e_min_1);
-                            println!("CICLOOO: {:?}", e_min_1_vertexs_cycle);
 
                             //Order from max to min
                             e_min_1_vertexs_cycle.sort_unstable_by(
@@ -645,7 +647,6 @@ impl MinimumKTreeHeuristic{
                             );
                             let e_max = e_min_1_vertexs_cycle.pop().unwrap();
                             tree_k_plus_1.delete_edge(e_max);
-                            println!("QUITANDO Y METIENEDO ARISTAS: {:?}\n{:?}",e_max, tree_k_plus_1);
 
                         }
 
@@ -654,8 +655,6 @@ impl MinimumKTreeHeuristic{
                             v_out_vector.push(*v);
                         }
 
-                        println!("T_cur_k: {:?}", tree);
-                        println!("T_k_plus_1: {:?}", tree_k_plus_1);
 
                         //break;
                     }
@@ -696,6 +695,15 @@ impl MinimumKTreeHeuristic{
 
                 //############EXPERIMENTAL STUFF###############
                 if f_best < f_tree_k_plus_1 - e_out_min_weigth{
+
+                    if self.nic_int > self.nic_max{
+                        self.tt_ten = self.tt_min;
+                        self.nic_int = 0;
+                        break;
+                    }else{
+                        self.tt_ten = self.tt_ten + self.tt_inc;
+                    }
+
                     continue;
                 }
                 //###########################################
@@ -737,13 +745,6 @@ impl MinimumKTreeHeuristic{
                     if edge_size == vertex_size-1{
                         best = unconnected_tree.clone();
                         new_tree_is_created = true;
-                    }
-
-                    if self.nic_int > self.nic_max{
-                        self.tt_ten = self.tt_min;
-                        self.nic_int = 0;
-                    }else{
-                        self.tt_ten = self.tt_ten + self.tt_inc;
                     }
 
                 }
