@@ -96,6 +96,7 @@ enum Adjacency{
     NonEmpty(Edge)
 }
 #[derive(Debug)]
+#[derive(Clone)]
 struct Graph{
     size : usize,
     vertexs : HashMap<u32,Vertex>,
@@ -129,12 +130,6 @@ impl Graph{
             }
         }
 
-        for i in 0..v_size{
-            for j in 0..v_size{
-                println!("i:{}, j:{}, val:{:?}",i, j, adjacent_vector[i*v_size+j]);
-            }
-        }
-
         let mut vertex_dictionary : HashMap<u32, Vertex> = HashMap::new();
         for v in vertexs_list{
             vertex_dictionary.insert(
@@ -157,8 +152,6 @@ impl Graph{
         let mut adjacent_edges: Vec<Edge> = Vec::new();
         let mut c = 1;
         for i in (index*size)..((index+1)*size){
-            //println!("{}",c.clone());
-            //println!("{:?}",self.adjacencies_matrix[i] );
             c += 1;
             match self.adjacencies_matrix[i]{
                 Adjacency::NonEmpty(e) => adjacent_edges.push(e),
@@ -204,9 +197,7 @@ impl Graph{
         let mut list : Vec<Edge> = Vec::new();
 
         for i in 0..self.size{
-            //println!("i:{}",i);
             for j in (i+1)..self.size{
-            //println!("j::{}",j);
                 let a: Adjacency = self.get_adjacency(i, j);
                 match a{
                     Adjacency::NonEmpty(e)=>{
@@ -358,7 +349,6 @@ impl Tree{
             }
         }
         //Build tray
-        println!("PRE-CICLO-MAP: {:?}", parents);
 
 
         let mut tray: Vec<Edge> = Vec::new();
@@ -374,7 +364,6 @@ impl Tree{
                 first = next;
                 next = *parents_v.get(first.get_id()).unwrap();
                 let e = Edge{vi: first, vf: next};
-                println!("crea: {:?}", e);
                 tray.push(e);
             }
         }
@@ -392,9 +381,7 @@ impl Tree{
 
     fn get_connected_component_deleting_vertex(&mut self, v: Vertex)-> Vec<Tree>{
         //Build neighbour tree:
-        println!("VERTEX TO DELETE: {:?}", v);
         let vertex_neighbours : HashMap<u32, Vec<Vertex> > = self.build_neighbour_tree();
-        println!("VERTEX NB: {:?}", vertex_neighbours);
         let mut visited_register : HashMap<u32, bool> = HashMap::new();
 
         for (k, _) in &self.tree_vertex_dictionary{
@@ -431,95 +418,17 @@ impl Tree{
 
             }
 
-            //println!("CREA COMPONENTE: {:?}", edges_of_tree);
             let mut component : Tree = Tree::new();
             for e in edges_of_tree{
                 component.add_edge_to_tree(e);
             }
 
-            println!("CREA COMPONENTE_ARBOL: {:?}", component);
             tree_components.push(component);
 
         }
 
         tree_components
     }
-
-    /*
-    fn get_cycle_edges( &mut self , number_of_vertex: usize)->Vec<Edge>{
-        //First we build our neighbour tree from vertex
-        let mut vertex_neighbours : HashMap<u32, Vec<Vertex> > = HashMap::new();
-        let mut cycle : Vec<Edge> = Vec::new();
-        let mut pre_cycle : Vec<Vertex> = Vec::new();
-        for e in &self.tree_edge_list{
-
-            let v_i = e.get_vi();
-            let v_f = e.get_vf();
-
-            match vertex_neighbours.entry(*v_i.get_id()) {
-                Entry::Vacant(entry) =>{ entry.insert(vec![*v_f]); },
-                Entry::Occupied(mut entry)=>{ entry.get_mut().push(*v_f);}
-            };
-
-            match vertex_neighbours.entry(*v_f.get_id()) {
-                Entry::Vacant(entry) =>{ entry.insert(vec![*v_i]); },
-                Entry::Occupied(mut entry)=>{ entry.get_mut().push(*v_i);}
-            };
-
-
-        }
-    //println!("MAPAAAAAAA: {:?}", vertex_neighbours);
-
-        //We search for a tree in that vertex
-        let mut visited_register : Vec<bool> = vec![false; number_of_vertex];
-        for (v_id, _) in self.tree_vertex_dictionary.clone(){
-            if !visited_register[v_id as usize] {
-                self.sub_detect_cyclic(&vertex_neighbours, &mut pre_cycle, v_id, &mut visited_register, 0);
-
-                println!("PRE_CICLOOO: {:?}", pre_cycle);
-            }
-        }
-        //Create final cicle
-        // Ineficient way to verify there exists such edges
-        for i in 1..(pre_cycle.len()){
-            /*
-            let e = self.find_edge_by_vertices(
-                pre_cycle[i],
-                pre_cycle[i+1]
-            );
-            */
-            let e = Edge{vi: pre_cycle[i-1], vf: pre_cycle[i]};
-            cycle.push(e);
-        }
-        cycle.push(Edge{vi:pre_cycle[0], vf:pre_cycle[pre_cycle.len()-1]});
-        cycle
-    }
-
-
-    fn sub_detect_cyclic( &mut self, adjacencies: &HashMap<u32,v_id: u32, visited_register: &mut Vec<bool>, v_parent: u32 )-> Option<Vec<Vertex>>{
-
-        //Mark vertex as visited
-        visited_register[v_id as usize] = true;
-        let neighbors = adjacencies.get(&v_id).unwrap().clone();
-        println!("Empezando en: {:?}, con padre; {:?}", v_id, v_parent);
-        println!("Vecinos:{:?}", neighbors);
-        println!("visitados:{:?}", visited_register);
-        for w in neighbors{
-            let w_id = w.get_id();
-
-            if !visited_register[*w_id as usize] {
-               let sub_path = self.sub_detect_cyclic( adjacencies, *w_id, visited_register, v_id);
-
-                if sub_path.is_some() {
-                    return sub_path;
-                }
-            }else if v_parent != *w_id{
-                    return Some(vec![w]);
-            }
-        }
-        None
-    }
-    */
 
     //To keep uncycled
     fn add_edge_to_tree_keeping_acyclic(&mut self, e: Edge)-> bool{
@@ -556,14 +465,10 @@ impl Tree{
         true
     }
     fn delete_edge(&mut self, e: Edge ){
-            println!("ELIMINAAAAA ENTRAA");
-            println!("Lista edges tree: {:?}", self);
-            println!("A eliminar: {:?}", e);
 
         if self.tree_edge_list.contains(&e){
             let index =  self.tree_edge_list.iter().position(|x| x.eq(&e) ).unwrap();
             self.tree_edge_list.remove(index);
-            println!("ELIMINAAAAA");
 
             let v_i = e.get_vi();
             let v_f = e.get_vf();
@@ -659,12 +564,6 @@ impl MinimumKTreeHeuristic{
         //Generate initial solution
         let mut tree : Tree = self.prim_to_k_minimum_tree(initial_vertex,k);
         let mut best : Tree = tree.clone();
-        /*
-        for e in tree.get_tree_edges(){
-            println!("{:?}",e);
-        }
-
-        */
         //Get V_in <- V_NH(T^cur_k)
         /*
          * V_NH(T^cur_k) =
@@ -795,11 +694,12 @@ impl MinimumKTreeHeuristic{
                 let f_tree_k_plus_1 = tree_k_plus_1.get_tree_weigth();
                 let e_out_min_weigth = e_out_min.get_weigth();
 
-                //if f_best < f_tree_k_plus_1 - e_out_min_weigth{
-                  //  continue;
-               // }
-                //println!("AENTAAASASFAKSDVASDKVAKSDV");
-                //println!("TREE:{:?}", tree);
+                //############EXPERIMENTAL STUFF###############
+                if f_best < f_tree_k_plus_1 - e_out_min_weigth{
+                    continue;
+                }
+                //###########################################
+
 
                 let mut connected_components : Vec<Tree> = tree_k_plus_1.get_connected_component_deleting_vertex(option_vertex_v_in.unwrap());
                 let mut new_tree_is_created = connected_components.len() == 1 ;
@@ -811,7 +711,6 @@ impl MinimumKTreeHeuristic{
                     e1.get_weigth().partial_cmp(&e2.get_weigth()).unwrap()
                 );
                 let mut unconnected_tree = self.create_unconnected_tree( connected_components.clone() );
-                println!("UNCONNECTED TREE:{:?}", unconnected_tree);
                 while ! new_tree_is_created {
                     let e_min_2 = e_in_2.pop().unwrap();
 
@@ -827,7 +726,6 @@ impl MinimumKTreeHeuristic{
                     let e_min_2_vi = e_min_2.get_vi();
                     let e_min_2_vf = e_min_2.get_vf();
                     let posible_cycle = unconnected_tree.get_u_v_unique_path(*e_min_2_vi, *e_min_2_vf);
-                    println!("POSIBLE CYBLE:{:?}", posible_cycle);
 
                     if posible_cycle.len() == 0{
                         unconnected_tree.add_edge_to_tree(e_min_2);
@@ -883,42 +781,37 @@ impl MinimumKTreeHeuristic{
             number_of_edges += 1.0;
         }
 
-        //println!("{}",weigth_of_v_to_tree/number_of_edges);
         weigth_of_v_to_tree/number_of_edges
     }
 
     fn prim_to_k_minimum_tree(&mut self, initial_vertex: Vertex, k:u32)->Tree{
-        println!("EXCECUTING PRIM:::");
-        println!("Initial vertex: {:?}", initial_vertex);
         let mut edges_adjacent_to_initial_vertex : Vec<Edge> = self.graph.get_edges_adjacent_to_vertex( initial_vertex);
-        //aristas_mayor_a_menor.sort_unstable_by(|a,b| b.partial_cmp(a).unwrap() );
+
         edges_adjacent_to_initial_vertex.sort_unstable_by(
             |a,b|
             a.get_weigth().partial_cmp(&b.get_weigth()).unwrap()
         );
-        /*
-        for i in &edges_adjacent_to_initial_vertex{
-            println!("e:{:?}, peso:{}",i,i.get_weigth());
-        }
-        */
-       // println!("{:?}, \n tam: {}", edges_adjacent_to_initial_vertex, edges_adjacent_to_initial_vertex.len());
+
         let min_edge: Edge = edges_adjacent_to_initial_vertex[0];
-        println!("initial edge: {:?}",min_edge);
+
         let mut tree : Tree = Tree::new();
         tree.add_edge_to_tree_keeping_acyclic(min_edge);
+
         while tree.get_tree_vertexs().len() < (k as usize)  {
             //calculate edges, adyacent to tree.
             let tree_vertexs = tree.get_tree_vertexs();
             let tree_edges = tree.get_tree_edges();
 
             let mut edges_adyacent_to_tree = self.graph.get_edges_adyacent_to_tree(tree_vertexs, tree_edges);
-            println!("{:?}", edges_adyacent_to_tree);
+
             edges_adyacent_to_tree.sort_unstable_by(
                 |a,b|
                 a.get_weigth().partial_cmp(&b.get_weigth()).unwrap()
             );
+
             let mut edge_added = false;
             let mut j = 0;
+
             while ! edge_added{
                 let min_edge_adyacent_to_tree = edges_adyacent_to_tree[j];
                 //Add edge to tree
@@ -942,7 +835,6 @@ impl MinimumKTreeHeuristic{
 
                 for (_ , v_tree_a ) in &tree_a.get_tree_vertexs(){
                     let mut edges_1 = self.graph.get_edges_from_vertex_to_tree( *v_tree_a, &mut tree_b );
-                    println!("EDGES FROM {:?} to {:?}: {:?}", v_tree_a, tree_b, edges_1);
                     edges_joining_trees.append(&mut edges_1);
                 }
             }
@@ -970,7 +862,6 @@ fn get_list_of_points_in_file(file_name: &str)->Vec<Vertex>
         let mut id_cont = 1;
         for line in lines{
             if let Ok(x_y_pair) = line {
-                //println!("{}", x_y_pair);
                 let x_y : Vec<&str> = x_y_pair.split(",").collect();
                 let x = match f64::from_str( x_y[0] ){
                     Ok(x_val) => x_val,
@@ -1052,9 +943,9 @@ fn main() {
     //------------INITIALIZE GRAPH AND HEURISTIC-------------
 
     let vertexs :Vec<Vertex> = get_list_of_points_in_file(&arch);
-    let g: Graph = Graph::new(vertexs.clone());
+    let mut g: Graph = Graph::new(vertexs.clone());
     let mut problem = MinimumKTreeHeuristic::new(
-        g,
+        g.clone(),
         StdRng::seed_from_u64(0),
         vertexs.len() as u32,
         k
@@ -1073,6 +964,7 @@ fn main() {
         }
         println!("FINAL TREE:\n{:?}", final_tree);
         println!("WEIGTH OF TREE: {}", wf);
+        println!("SEED: {}", seed_or_iterations);
         println!("SALIDA PUNTOS E: ");
 
         for e in final_tree.get_tree_edges(){
@@ -1087,7 +979,15 @@ fn main() {
 
     if option.eq("expr"){
         for s in 1..(seed_or_iterations as usize){
+
             let seed = StdRng::seed_from_u64(s as u64);
+
+            problem = MinimumKTreeHeuristic::new(
+                g.clone(),
+                seed,
+                vertexs.len() as u32,
+                k
+            );
 
             let mut final_tree: Tree = problem.tabu_search_for_minimum_k_spanning_tree(k);
 
@@ -1098,6 +998,7 @@ fn main() {
 
             println!("FINAL TREE:\n{:?}", final_tree);
             println!("WEIGTH OF TREE: {}", wf);
+            println!("SEED: {}", s);
             println!("SALIDA PUNTOS E: ");
 
             for e in final_tree.get_tree_edges(){
