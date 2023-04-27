@@ -1,0 +1,378 @@
+\documentclass[letter,10pt]{article}
+\usepackage[utf8]{inputenc}
+
+\title{k-subminimum tree of G}
+\author{Víctor Emiliano Cruz Hernández}
+
+\usepackage[spanish]{babel}
+\usepackage{listings}
+\usepackage{graphicx} 
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{ amssymb }
+\usepackage{algorithm2e}
+
+%% This is needed if you want to add comments in
+%% your algorithm with \Comment
+\SetKwComment{Comment}{/* }{ */}
+\SetKwRepeat{Do}{do}{while}
+\RestyleAlgo{ruled}
+
+\DeclarePairedDelimiter\ceil{\lceil}{\rceil}
+\DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+
+\newtheorem{theorem}{Theorem}
+
+\begin{document}
+
+\maketitle
+
+% This document is an example of BibTeX using in bibliography management. Three items are cited: \textit{The \LaTeX\ Companion} book \cite{latexcompanion}, the Einstein journal paper \cite{einstein}, and the Donald Knuth's website \cite{knuthwebsite}. The \LaTeX\ related items are \cite{latexcompanion,knuthwebsite}. 
+
+\section{Introducción}
+
+El problema del $k$-subárbol-mínimo es un problema de optimización combinatoria en el que se busca encontrar un subconjunto de $k$ aristas en una gráfica tal que el subgrafo formado por esas $k$ aristas tenga el menor peso posible. 
+
+Algunas aplicaciones del problema se encuentran en la optimización de redes de comunicaciones y en la planificación de redes eléctricas. Es un problema NP-duro, lo que significa que no existe un algoritmo eficiente que pueda resolver el problema para todos los casos de entrada. Se han desarrollado diferentes enfoques heurísticos para resolver este problema de manera aproximada, en este documento nos basamos en una técnica híbrida.
+\section{Heurística}
+
+\subsection{Vecindario}
+Sea $g=(V,E)=(V(G),E(G))$ nuestra gráfica de entrada. Definimos el espacio de búsqueda de acuerdo a las siguientes definiciones:
+\begin{definition}[$T_k$] $T_k$ es un $k$-subárbol de $G$ $\Leftrightarrow$ $T_k \in G$ y $k\leq |V(G)|-1$.
+\end{definition}
+
+\begin{definition}[$V_{NH}(T_k)$] Definimos a $V_{NH}(T_k)$ como el conjunto de vértices de $V(G)$ que no están en $T-k$ pero son adyacentes a él.
+
+\[V_{NH}(T_k) = \{v \in V(G)-V(T_k) | \exists v'\in V(T_k)( \{v,v'\} \in E(G)\} \]
+\end{definition}
+
+\begin{definition}[El Vecindario de $T_k$: $NH(T_k)$] Sea $T_k =(V(T_k),E(T_k))$ para el cual obtenemos su $V_{NH}(T_k)$. 
+
+Creamos una solución local mínima $T^{NH}_k$ de $T_k$ añadiendo un vértice $v_{in}\in V_{NH}(T_k)$ obtenido aleatoriamente a $T$. Posteriormente con nuestro algoritmo de búsqueda local eliminaremos algún $v_{out}\in V(T_k)$ escogido en base a los pesos de sus aristas.
+\end{definition}
+
+Naturalmente seleccionamos la siguiente solución a iterar como el $T^{NH}_k \in NH(T^{cur}_k)$ que tenga la mejor función objetivo de todas. A este lo denotamos como $T^{NH_{best}}_k$ que cumple con:
+\begin{align}
+    T^{NH_{best}}_k = min_{T^{NH}_k \in NH(T^{cur}_k) }\{ f(T^{NH}_k)\}
+\end{align}
+
+
+\subsection{Parámetros para la búsqueda tabú}
+
+Para la búsqueda tabú vamos a definir un conjunto de valores $tt_{min}$, $tt_{max}$, $tt_{inc}$ y $nic_{max}$. Vamos a definir un intervalo $nic_{int}$ (\textit{Periodo De Estancamiento}) y dos listas: $TabuInList$ , $TabuOutList$ para evitar ciclarnos entre el conjunto de soluciones $NH(T^{cur}_k)$, mientras ejecutamos el \textbf{algoritmo de búsqueda local}.
+
+\[ tt_{min} := min \Big \{ \Big \lfloor\frac{|V|}{20} \Big \rfloor, \frac{|V|-k}{4}, \frac{k}{4} \Big \} \]
+\begin{definition}[$tt_{max}$] Defininimos a $tt_{max}$ como:
+\[ tt_{max} := \Big \lfloor\frac{|V|}{5} \Big \rfloor \]
+\end{definition}
+\begin{definition}[$tt_{inc}$] Defininimos a $tt_{inc}$ como:
+\[ tt_{inc} := \Big \lfloor\frac{tt_{max}-tt_{min}}{10}\Big \rfloor +1\]
+\end{definition}
+\begin{definition}[$nic_{max}$] Defininimos a $nic_{max}$ como:
+\[ nic_{max} := max\{ tt_{inc} , 100\}\]
+\end{definition}
+\begin{definition}[\textit{Periodo de Estancamiento}: $nic_{int}$]
+Dada una mejor solución encontrada $T^{NH_{best}}_{k}$, definimos a $nic_{int}$ como el periodo en el que no hemos actualizado esa solución.
+\end{definition}
+\begin{definition}[$TabuInList$]
+Una lista que contiene a los índices de las aristas removidas.
+\end{definition}
+\begin{definition}[$TabuOutList$]
+Una lista que contiene a los índices de las listas añadidas.
+\end{definition}
+
+Inicialmente vamos a declarar $tt_{ten}$ asignándole el valor de $tt_{min}$. Cuando $nic_{int} > nic_{max}$ actualizamos $tt_{ten}$ como $tl_{ten} \leftarrow tt_{ten} + tt_{nic}$.
+
+\subsection{Algoritmo de búsqueda local basada en búsqueda tabú }
+
+Sea $G=(V(G),E(G))$ nuestra gráfica de entrada y una $k\leq |V(G)|-1$.
+
+\subsubsection{Generación de la solución inicial $T^{cur}_k$}
+Seleccionamos un nodo al azar de $V(G)$ y aplicamos el algoritmo \texttt{Prim} hasta que terminemos de construir un $k$-subárbol, llamémosle $T^{cur}_k$. Entonces definimos a $T^{cur}_k$ como nuestra \textit{solución inicial} y nuestra \textit{solución actual}
+\subsubsection{Inicializamos los parámetros de búsqueda tabú}
+Inicializamos los parámetros que se describen en la sección de Parámetros para la búsqueda tabú.
+\subsubsection{Búsqueda basada en búsqueda tabú}
+\begin{enumerate}{}
+    \item[] \textbf{Paso 1. Inicializamos la lista de un nodo detectado}:\\
+    Inicializamos $V_{in}$ como $V_{in} \leftarrow V_{NH}(T^{cur}_k)$.
+    \item[] \textbf{Paso 2. Decisión de eliminar un nodo}:\\
+    Si $V_{in}= \varnothing $ terminamos el algoritmo. En otro caso vamos al \textbf{Paso 2.1}.
+    \begin{enumerate}
+        \item[] \textbf{Paso 2.1} Encontrar el vértice $v_{in}$:\\
+        \begin{definition}[El vértice $v_{in}$]
+            \[
+                v_{in} := 
+                min_{v\in V_{in}}
+                    \Bigg \{ \frac{\sum_{v'\in V(T^{cur}_k )} w(e)}{d(v)} \Big | e = (v,v')
+                    \Bigg \} 
+            \]
+        \end{definition}
+        Vamos a encontrar $v_{in}$ como el mínimo vértice $v\in V_{in}$ tal que la media del peso de las aristas que conectan con nuestra trayectoria actual $T^{cur}_k$, sea el menor.\\
+        
+        En la definición anterior lo hacemos de la siguiente forma. Para todo vértice $v\in V_{in}$:
+        \begin{itemize}
+            \item[1.] Vamos a calcular el número de aristas que conectan $v$ con algún otro vértice $v'$ de nuestra trayectoria actual $T^{cur}_k$ y llamaremos a este número $d(v)$.
+            \item[2.] Posteriormente, vamos a sumar el peso de cada una de las aristas $w(e)= w( (v,v'))$ que la conectan con la trayectoria actual en $\sum_{v'\in V(T^{cur}_k )} w(e)$, llamémosle $s$.
+            \item[3.] Calculamos la media del peso de las aristas en $\frac{s}{d(v)}$
+            \item[4.] Obtenemos a $v_{in}$ como aquel con un valor mínimo de $\frac{s}{d(v)}$ de entre todos los vértices de $V_{in}$.
+        \end{itemize}
+        Establecemos a $V_{in}$ como 
+        \begin{align*}
+            V_{in} \leftarrow V_{in}-\{v_{in}\}
+        \end{align*}
+        Procedemos al paso 2.2.
+        \item[] \textbf{Paso 2.2} Encontrar la arista $e_{min_1}$:\\
+        \begin{definition}[El conjunto de aristas $E_{in_1}$]
+            \[ E_{in_1} := 
+                    \{ (v,v_{in}) | v\in V(T^{cur}_k) \}
+            \]
+        \end{definition}
+        \begin{definition}[La arista $e_{min_1}$]
+            \[ e_{min_1} := 
+                    min_{e\in E_{in_1}}\{ w(e) \}
+            \]
+        \end{definition}
+        Observamos que pudimos haber construido el conjunto de aristas $E_{in_1}$ indirectamente en el paso 2.1 al encontrar $v_{in}$, pues la suma $s$ correspondiente al vértice $v_{in}$ justamente itera sobre el conjunto de aristas que queremos encontrar.\\
+        
+        De cualquier manera, para construir $E_{in_1}$ tomamos nuestro vértice $v_{in}$ y para cada vértice $v\in V(T^{cur}_k)$, la arista $(v_{in},v)$ se añade a $E_{in_1}$. Tenemos que $e_{min_1}$ es simplemente la arista de menor peso que conecta a $v_{in}$ con nuestra trayectoria $T^{cur}_k$.\\
+        Convenientemente para este paso vamos a modificar $E_{in_1}$ como:
+        \begin{align*}
+            E_{in_1} \leftarrow E_{in_1}-\{e_{min_1}\}
+        \end{align*}
+
+        Y ya que hayamos encontrado $v_{in}$ y $e_{min_1}$ creamos un árbol $T^{NH}_{k+1}$ de la siguiente manera:
+        \begin{align*}
+            T^{NH}_{k+1} \leftarrow (V(T^{cur}_k)\cup \{v_{in}\}, E(T^{cur}_k)\cup \{e_{min_1}\} )
+        \end{align*}
+        Lo que ahora hemos hecho es crear un árbol de $k+1$ vértices exactamente igual a nuestro árbol $T^{cur}_k$ pero añadiendo el vértice $v_{in}$ con su respectiva arista de menor peso que la conecta con nuestro árbol $T^{cur}_k$. \\
+
+        No hemos acabado de manipular a nuestro nuevo árbol $T^{NH}_{k+1}$. Procedemos al paso 2.3.\\
+        
+        \item[] \textbf{Paso 2.3} Volver a encontrar la arista $e_{min_1}$:\\
+        
+        Simplemente quitamos de $E_{in_1}$ a $e_{min_1}$ de forma que obtenemos la segunda arista de menor peso que conecta $v_{in}$ con nuestro árbol $T^{cur}_k$. Convenientemente para este paso vamos a modificar $E_{in_1}$ como:
+        \begin{align*}
+            E_{in_1} \leftarrow E_{in_1}-\{e_{min_1}\}
+        \end{align*}
+        Y además modificamos a $T^{NH}_{k+1}$ añadiéndole a $e_{min_1}$:
+        \begin{align*}
+            T^{NH}_{k+1} \leftarrow (V(T^{NH}_{k+1}), E(T^{NH}_{k+1}) \cup \{e_{min_1} \} )  
+        \end{align*}
+        Observamos que ahora $T^{NH}_{k+1}$ ya no es un árbol pues al añadir $e_{min_1}$ una vez para después volver a encontrar $e_{min_1}$ y volver a añadirlo, ambas aristas conectan a $v_{in}$ en $T^{cur}_k$ y entonces hemos creado un ciclo en $T^{NH}_{k+1}$. Con este conocimiento procedemos al paso 2.4.\\
+
+        \item[] \textbf{Paso 2.4} Encontrar la arista $e_{max}$:\\
+        Sea $E_{loop}$ el conjunto de aristas que forman el ciclo en $T^{NH}_{k+1}$ construido previamente. Buscamos a $e_{max}$ como:
+        \begin{definition}[La arista $e_{max}$]
+            \[ e_{max} := 
+                    max_{e\in E_{loop}} \{ w(e) \}
+            \]
+        \end{definition}
+        Modificamos a $T^{NH}_{k+1}$, para que vuelva a ser un árbol de la siguiente forma:
+        
+        \begin{align*}
+            T^{NH}_{k+1} \leftarrow (V(T^{NH}_{k+1}), E(T^{NH}_{k+1})-\{e_{max}\} )
+        \end{align*}
+        \item[] \textbf{Paso 2.5} Iterar hasta asegurarse que no hay mejor trayectoria que conecte a  $v_{in}$ con $T^{cur}_k$:\\
+        Iteramos desde el paso 2.3 mientras que $E_{in_1}\neq \varnothing$. Observamos que a medida que iteramos, vamos a ir conectando a el vértice $v_{in}$ con las distintas posibles aristas que lo conectan con la trayectoria $T^{cur}_k$ intentando construir una $k+1$-trayectoria sobre nuestra $k$-trayectoria actual $T^{cur}_k$ de forma que tenga el menor costo posible. \\
+
+        Cuando $E_{in_1} = \varnothing$ entonces declaramos nuestro conjunto de vértices $V_{out}$ como:
+        \begin{align*}
+            V_{out} \leftarrow V(T^{cur}_k)
+        \end{align*}
+        Y a partir de este momento continuamos en el paso 3.
+    \end{enumerate}
+    \item[] \textbf{Paso 3. Decisión de un nodo añadido para construir $T^{NH}_k$}:\\
+    Si $V_{out} = \varnothing$ regresamos al Paso 2. En otro caso vamos al paso 3.1.
+    \begin{enumerate}
+        \item[] \textbf{Paso 3.1} Encontrar al vértice $v_{out}$:\\
+        \begin{definition}[El vértice $v_{out}$]
+            \[
+                v_{out} := 
+                max_{v\in V_{out}}
+                    \Bigg \{ \frac{\sum_{v'\in V(T^{cur}_k )} w(e)}{d(v)} \Big | e = (v,v')
+                    \Bigg \} 
+            \]
+        \end{definition}
+        La construcción de la definición anterior es similar a $v_{in}$, en lugar de obtener una mínima arista, obtenemos una máxima, pero de todas formas se explica:
+
+        Vamos a encontrar $v_{out}$ como el máximo vértice $v\in V_{out}$ tal que la media del peso de las aristas que conectan con nuestra trayectoria actual $T^{cur}_k$, sea máxima.\\
+        Para todo vértice $v\in V_{out}$:
+        \begin{itemize}
+            \item[1.] Vamos a calcular el número de aristas que conectan $v$ con algún otro vértice $v'$ de nuestra trayectoria actual $T^{cur}_k$ y llamaremos a este número $d(v)$.
+            \item[2.] Posteriormente, vamos a sumar el peso de cada una de las aristas $w(e)= w( (v,v'))$ que la conectan con la trayectoria actual en $\sum_{v'\in V(T^{cur}_k )} w(e)$, llamémosle $s'$.
+            \item[3.] Calculamos la media del peso de las aristas en $\frac{s'}{d(v)}$
+            \item[4.] Obtenemos a $v_{in}$ como aquel con un valor máximo de $\frac{s'}{d(v)}$ de entre todos los vértices de $V_{in}$.
+        \end{itemize}
+        Después establecemos a $V_{out}$ como 
+        \begin{align*}
+            V_{out} \leftarrow V_{out}-\{v_{out}\}
+        \end{align*}
+        Continuamos en el paso 3.2.
+        \item[] \textbf{Paso 3.1} Encontrar a la arista $e^{out}_{min}$:\\
+        \begin{definition}[La arista $e^{out}_{min}$]
+            \[ e^{out}_{min} := 
+                    min_{e\in \{ (v_{out},v')  | v' \in T^{cur}_k \} }\{ w(e) \}
+            \]
+        \end{definition}
+        Ahora lo que estamos buscando es encontrar la arista de menor peso que conecta nuestro vértice $v_{out}$ a nuestra trayectoria $T^{cur}_k$. De nuevo, el conjunto donde vamos a encontrar $v_{out}$ nos va a dar $e^{out}_{min}$ pues esta forma parte de la suma $s'$. \\
+
+        Ahora si para $e^{out}_{min}$ dado y nuestro $T^{NH}_{k+1}$ construido previamente sucede que:
+        \begin{align*}
+            f(T^{NH_{best}}_k) < \Bigg( \sum_{e\in E(T^{NH}_{k+1} )}w(e) \Bigg ) - w(e^{out}_{min})
+        \end{align*}
+        vamos a regresar directamente al paso 3. De otra forma vamos a ir al paso 3.3.
+        \item[] \textbf{Paso 3.3} Las componentes conexas $S_r$ que forman al árbol $T^{NH}_k$:\\
+
+        Eliminamos $v_{in}$ de $T^{NH}_{k+1}$ de forma que obtenemos un bosque $(S_1,\dots,S_r)$. Aunque obtenemos un bosque, vamos a tomar este bosque como nuesto candidato al árbol $T^{NH}_k$ para el cual nos preocuparemos por construir en lo que resta del paso 3, si es que merece la pena.
+        Procedemos ahora a encontrar el conjunto de aristas $E_{in_2}$:
+
+        \begin{definition}[Las aristas $E_{in_2}$] Sea el bosque $(S_1, \dots , S_r)$ obtenido de $T^{NH}_{k+1}$ al eliminar $v_{in}$. Definimos a $E_{in_2}$ como:
+
+        \[ E_{in_2} = \{(v_i,v_j) | v_i \in S_k, v_j\in S_l, k\neq l\}\]
+        
+        \end{definition}
+        Pasamos al paso 3.4
+        \item[] \textbf{Paso 3.4} Encontrar a la arista $e_{min_2}$:\\
+        \begin{definition}[La arista $e_{min_2}$] Sea nuestro conjunto de aristas $E_{in_2}$. La arista $e_{min_2}$ es la de menor peso de entre ellas:
+            \[e_{min_2} =  min_{e\in E_{in_2}} \{w(e)\}\]
+        
+        \end{definition}
+        Si sucede que para $e_{min_2}$
+        \begin{align}
+            f(T^{NH_{best}}_k) < w(e_{min_2})+\sum_{e\in E(T^{NH}_{k} )}w(e)
+        \end{align}
+        Entonces regresamos al paso 3, de otra forma vamos al paso 3.5
+
+        \item[] \textbf{Paso 3.5} Unir la arista $e_{min_2}$ con el árbol no conexo $T^{NH}_k$:\\
+        Si agregar $e_{min_2}$ a $T^{NH}_k$ no nos genera un ciclo, entonces $E(T^{NH}_k) \gets E(T^{NH}_k) \cup e_{min_2}$ en ese y cualquier otro caso eliminamos de $E_{in_2}$. Procedemos al paso 3.6
+        
+        \item[] \textbf{Paso 3.5} Verificar si $T^{NH}_k$ ya es un árbol:\\
+        Si $T^{NH}_k$ es un árbol, entonces actualizamos $T^{NH_{best}}_k$ a $T^{NH}_k$ y regresamos al paso 3. Si no es un árbol regresamos al paso 3.4
+    \end{enumerate}
+    
+\end{enumerate}
+
+\section{Implementación}
+
+La implementación se sigue con el siguiente pseudocódigo:
+\newpage
+
+\begin{algorithm}[H]
+    \LinesNumbered
+    \caption{BusquedaTabu}\label{alg:two}
+    \KwData{$K_n\text{, por definición,  operamos bajo una gráfica geométrica completa}$}
+    \KwResult{$T_k \in K_n, k\leq n-1$}
+    \texttt{InicializarParametrosYListas()}\;
+    $T^{cur}_k \gets \texttt{GenerarSolucionInicial()}$\;
+    $T^{gb}_k \gets T^{cur}_k$\;
+    $T^{rb}_k \gets T^{cur}_k$\;
+    $V_{in} \gets V_{NH}(T^{cur}_k)$\;
+    $V_{out} \gets \varnothing$\;
+    $cont \gets 0$\;
+        \While{$tt_{ten} < tt_{max} \textit{ and } cont < maximoNumeroIteraciones$}{
+            $cont \gets cont +1$\;
+            \eIf{$V_{out}=\varnothing$}{
+                \While{$V_{out} = \varnothing$}{
+                    \eIf{$V_{in} = \varnothing$ }{ 
+                        \Return
+                    }{
+                        $ T^{NH}_{k+1} \gets \texttt{DecisionDeUnNodoEliminado($T^{cur}_k,V_{in}, V_{out}$)}$\;
+                    }
+                }       
+            }{
+                $v_{out} \gets 
+                    max_{v\in V_{out}}
+                        \Bigg \{ \frac{\sum_{v'\in V(T^{cur}_k )} w(e)}{d(v)} \Big | e = (v,v')
+                        \Bigg \}$\;
+                $V_{out} \gets V_{out}-\{v_{out}\}$\;
+                $e^{out}_{min} \gets min_{e\in \{ (v_{out},v')  | v' \in T^{cur}_k \} }\{ w(e) \}$\;
+                \If{$f(T^{NH_{best}}_k) < \Bigg( \sum_{e\in E(T^{NH}_{k+1} )}w(e) \Bigg ) - w(e^{out}_{min})$}{
+                    $continue$\;
+                }
+                $T^{NH}_k =(S_1, \dots, S_r) \gets \texttt{obtieneComponentesConexasAlEliminarVertice($v_{in}, T^{NH}_{k+1}$)}$\;
+                $E_{in_2} \gets \{(v_i,v_j) | v_i \in S_k, v_j\in S_l, k\neq l\}$\;
+                \Do{$T^{NH}_k \textit{ no es un árbol}$}{
+                    $e_{min_2}\gets min_{e\in E_{in_2}} \{w(e)\}$\;
+                    \If{$f(T^{NH_{best}}_k) < w(e_{min_2})+\sum_{e\in E(T^{NH}_{k} )}w(e)$}{
+                        $break$\;
+                    }
+                    \If{$\textit{No hay ciclo en } e_{min_2} \cup T^{NH}_k$}{
+                        $E(T^{NH}_k) \gets E(T^{NH}_k) \cup e_{min_2}$\;
+                    }
+                    $E_{in_2}\gets E_{in_2}-\{e_{min_2}\}$\;
+                    \If{$T^{NH}_k \textit{ es un árbol}$}{
+                        $f(T^{NH_{best}}_k) \gets f(T^{cur}_k)$\;
+                    }
+                }
+            }
+        }
+        
+\end{algorithm}
+
+ \begin{algorithm}[H]
+    \caption{DecisionDeUnNodoEliminado}\label{alg:two}
+    \KwData{$T^{cur}_k,V_{in}, V_{out}$}
+    \KwResult{$ T^{NH}_{k+1}$}
+    $ T^{NH}_{k+1} \gets \varnothing$\;
+    $v_{in} \gets 
+                min_{v\in V_{in}}
+                    \Bigg \{ \frac{\sum_{v'\in V(T^{cur}_k )} w(e)}{d(v)} \Big | e = (v,v')
+                    \Bigg \}$\;
+            $V_{in} \gets V_{in}-\{v_{in}\}$\;
+            $E_{in_1} \gets \{ (v,v_{in}) | v\in V(T^{cur}_k) \}$\;
+            $e_{min_1} \gets min_{e\in E_{in_1}}\{ w(e) \}$\;
+            $T^{NH}_{k+1} \gets (V(T^{cur}_k) \cup \{v_{in} \}, E(T^{cur}_k) \cup \{e_{min_1} \} ) $\;
+            $E_{in_1} \gets E_{in_1}-\{e_{min_1}\}$\;
+            \While{$E_{in_1} \neq \varnothing$}{
+                $e_{min_1} \gets min_{e\in E_{in_1}}\{ w(e) \}$\;
+                $T^{NH}_{k+1} \gets (V(T^{NH}_{k+1}), E(T^{NH}_{k+1}) \cup \{e_{min_1} \} )$\;
+                $E_{in_1} \gets E_{in_1}-\{e_{min_1}\}$\;
+                $E_{loop} \gets \texttt{DetectaCiclo($T^{NH}_{k+1}$)}$ \;
+                $e_{max} \gets max_{e\in E_{loop}} \{ w(e) \}$\;
+                $ T^{NH}_{k+1} \leftarrow (V(T^{NH}_{k+1}), E(T^{NH}_{k+1})-\{e_{max}\} )$\;
+            }
+            $V_{out} \gets V(T^{cur}_k)$\;
+            \Return{$ T^{NH}_{k+1}$}\;
+\end{algorithm}
+
+ 
+\begin{algorithm}[H]
+    \caption{GenerarSolucionInicial}\label{alg:two}
+        $v_{initial} \gets \texttt{RandomVertex()}$\;
+        $\textit{Aplicamos \texttt{Prim} hasta generar un k-arbol }$\;
+        $T^{cur}_k \gets \texttt{Prim($v_{initial}, k)$}$\;
+        \Return{$ T^{cur}_k$}\;
+\end{algorithm}
+
+
+\begin{algorithm}[H]
+\caption{InicializarParametrosYListas}\label{alg:two}
+    
+    $tt_{min} \gets min \Big \{ \Big \lfloor\frac{|V|}{20} \Big \rfloor, \frac{|V|-k}{4}, \frac{k}{4} \Big \}$\;
+    $tt_{max} \gets \Big \lfloor\frac{|V|}{5} \Big \rfloor$\;
+    $tt_{inc} \gets \Big \lfloor\frac{tt_{max}-tt_{min}}{10}\Big \rfloor +1$\;
+    $nic_{max} \gets max\{ tt_{inc} , 100\}$\;
+    $tt_{ten} \gets tt_{min}$\;
+    $nic_{int} \gets 0$\;
+    $InList \gets []$\;
+    $OutList \gets []$\;
+    $maximoNumeroIteraciones = 100000$\;
+\end{algorithm}
+
+\section{Resultados}
+El sistema funciona, encuentra soluciones reales dentro de la gráfica y es relativamente rápido. De acuerdo a la heurística, no debería ciclarse alguna sección de la implementación, aún así se añadió un corto circuito del primer while del algoritmo \texttt{BusquedaTabu} pues este se ciclaba. La implementación no es limpia y no aprovecha los recursos que Rust ofrece. Tanto los algoritmos como las estructuras de datos no son los más óptimos en este problema.
+
+Aunque nuestra heurística se basara fuertemente en el uso de las listas \texttt{InList} y \texttt{OutList}, estas no figuraban una participación transparente en el artículo de la heurísitca, por los que los adapté de una segunda fuente mencionada en las referencias del artículo.
+
+No se implementó la segunda parte de la heurística, la parte de exploración con hormigaas si bien es parte de la heurística, no forma un fuerte acoplamiento con la búsqueda tabú por lo que su implementación puede hacerse en un futuro.
+\medskip
+
+\bibliographystyle{unsrt}%Used BibTeX style is unsrt
+\nocite{*}
+\bibliography{sample}
+
+
+\end{document}
